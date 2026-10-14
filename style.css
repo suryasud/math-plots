@@ -1,30 +1,182 @@
-/* Custom scrollbar for a sleek dark theme */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: #0f172a; 
-}
-::-webkit-scrollbar-thumb {
-    background: #334155; 
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #475569; 
+:root {
+  --ink: #090b1a;
+  --panel: #11142b;
+  --raise: #181c3d;
+  --line: #2a2f5c;
+  --text: #ece9f6;
+  --mute: #9a9fc4;
+  --brass: #f0b862;
+  --iris: #8f82ff;
+  --teal: #3fd4c4;
 }
 
-/* Smooth fade for content updates */
-.fade-in {
-    animation: fadeIn 0.4s ease-in-out;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+
+body {
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) 1fr;
+  background: var(--ink);
+  color: var(--text);
+  font: 15px/1.65 "Instrument Sans", system-ui, sans-serif;
+  overflow: hidden;
 }
 
-/* Ensure plotly canvas fills correctly */
-.js-plotly-plot, .plot-container {
-    width: 100% !important;
-    height: 100% !important;
+/* ---------- Panel ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: linear-gradient(180deg, var(--panel), #0c0f24);
+  border-right: 1px solid var(--line);
+  box-shadow: 12px 0 60px rgba(0, 0, 0, .45);
+  z-index: 2;
+}
+
+.brand { padding: 30px 28px 18px; }
+.brand h1 {
+  font: 600 2.7rem/1 Fraunces, Georgia, serif;
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+  letter-spacing: -.035em;
+  background: linear-gradient(100deg, var(--text) 30%, var(--brass) 62%, var(--iris));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand p { color: var(--mute); margin-top: 10px; font-size: .88rem; }
+
+.picker {
+  display: grid;
+  grid-template-columns: 1fr 44px 44px 44px;
+  gap: 8px;
+  padding: 0 28px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+select, button {
+  font: inherit;
+  color: var(--text);
+  background: var(--raise);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  height: 44px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, transform .15s;
+}
+select { padding: 0 12px; min-width: 0; }
+button { font-size: 1.25rem; line-height: 1; }
+select:hover, button:hover { border-color: var(--iris); background: #1e2349; }
+button:active { transform: scale(.94); }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* ---------- Info ---------- */
+.info {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.info.swap { animation: swap .45s cubic-bezier(.2, .7, .2, 1); }
+@keyframes swap { from { opacity: 0; transform: translateY(8px); } }
+
+.badge {
+  align-self: flex-start;
+  padding: 3px 11px;
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--teal);
+  border: 1px solid color-mix(in srgb, var(--teal) 45%, transparent);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--teal) 9%, transparent);
+}
+
+.info h2 {
+  font: 600 1.85rem/1.15 Fraunces, Georgia, serif;
+  font-variation-settings: "SOFT" 100;
+  letter-spacing: -.02em;
+}
+
+/* equation card with a gradient edge */
+.eq {
+  padding: 18px 16px;
+  overflow-x: auto;
+  text-align: center;
+  color: var(--brass);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient(var(--ink), var(--ink)) padding-box,
+    linear-gradient(135deg, var(--iris), var(--line) 40%, var(--brass)) border-box;
+  scrollbar-width: thin;
+}
+.eq mjx-container { margin: 0 !important; }
+
+.info p { color: var(--mute); max-width: 62ch; }
+
+.hint {
+  padding: 14px 28px;
+  font-size: .78rem;
+  color: var(--mute);
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- Stage ---------- */
+.stage {
+  position: relative;
+  min-height: 0;
+  background:
+    radial-gradient(60% 55% at 50% 48%, rgba(143, 130, 255, .22), transparent 70%),
+    radial-gradient(40% 35% at 70% 75%, rgba(240, 184, 98, .10), transparent 70%),
+    linear-gradient(rgba(143, 130, 255, .07) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(143, 130, 255, .07) 1px, transparent 1px) 0 0 / 44px 44px,
+    #05060f;
+}
+#plot { position: absolute; inset: 0; }
+.js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
+
+.loader {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(5, 6, 15, .78);
+  backdrop-filter: blur(6px);
+  color: var(--brass);
+  font-size: .85rem;
+  letter-spacing: .08em;
+  transition: opacity .3s;
+}
+.loader i {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(240, 184, 98, .2);
+  border-top-color: var(--brass);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Responsive & motion ---------- */
+@media (max-width: 820px) {
+  body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 46vh) minmax(0, 1fr); }
+  .panel { border-right: 0; border-bottom: 1px solid var(--line); }
+  .brand { padding: 16px 20px 8px; }
+  .brand h1 { font-size: 1.8rem; }
+  .brand p, .hint { display: none; }
+  .picker { padding: 0 20px 14px; }
+  .info { padding: 16px 20px; gap: 12px; }
+  .info h2 { font-size: 1.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
