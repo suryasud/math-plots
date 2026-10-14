@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathScapes | Beautiful Curves</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js for 3D graphs -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <!-- MathJax for rendering mathematical equations -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <header>
+                <h1>Math<span>Scapes</span></h1>
+                <p>Interactive mathematical surfaces</p>
+            </header>
+
+            <div class="control-group">
+                <label for="function-select">Select a Surface</label>
+                <div class="select-wrapper">
+                    <select id="function-select">
+                        <option value="sinc">The Sinc Function (Ripple)</option>
+                        <option value="gaussian">Bivariate Gaussian Distribution</option>
+                        <option value="saddle">Hyperbolic Paraboloid (Saddle Point)</option>
+                        <option value="lorenz">Lorenz Attractor (Chaos)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h2 id="func-name">The Sinc Function</h2>
+                <div class="equation-container" id="func-eq">
+                    $$ z = \frac{\sin(\sqrt{x^2 + y^2})}{\sqrt{x^2 + y^2}} $$
+                </div>
+                <p id="func-desc">
+                    Often described as a mathematical raindrop hitting a pond, the Sinc function creates perfectly decaying concentric ripples. 
+                </p>
+            </div>
+            
+            <div class="interaction-hint">
+                <span>🖱️</span> Drag to rotate, scroll to zoom
+            </div>
+        </aside>
+
+        <!-- Plot Area -->
+        <main class="plot-container">
+            <div id="plot"></div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
