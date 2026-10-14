@@ -233,6 +233,259 @@ curve('conespiral', K, 'Conical Spiral', T`x=t\cos 6t,\; y=t\sin 6t,\; z=t`,
   'A helix whose radius grows with height, wrapping the surface of a cone.', 'Plasma', 6,
   () => polyline(0, 5, .01, t => [t * Math.cos(6 * t), t * Math.sin(6 * t), t]));
 
+/* Engineering curves
+   Paste this whole block into script.js, right before the "/* Attractors */" comment.
+   Uses helpers already in your script: T, CY, reg, polyline. */
+const E = 'Engineering Curves';
+
+// Flat curve in the XY plane, coloured along its path
+const plane = (k, n, eq, d, cs, w, t0, t1, dt, f) => reg(k, E, n, eq, d, () => {
+  const p = polyline(t0, t1, dt, t => [...f(t), 0]);
+  return { data: [{ ...p, type: 'scatter3d', mode: 'lines', line: { color: Array.from(p.x, (_, i) => i), colorscale: cs, width: w } }] };
+});
+
+// Rolling-circle families: R = fixed circle, r = rolling circle, d = pen distance
+const epi = (R, r, d) => t => [(R + r) * Math.cos(t) - d * Math.cos((R + r) / r * t), (R + r) * Math.sin(t) - d * Math.sin((R + r) / r * t)];
+const hypo = (R, r, d) => t => [(R - r) * Math.cos(t) + d * Math.cos((R - r) / r * t), (R - r) * Math.sin(t) - d * Math.sin((R - r) / r * t)];
+const pe = p => T`x=(R+r)\cos t-d\cos\tfrac{R+r}{r}t,\; y=(R+r)\sin t-d\sin\tfrac{R+r}{r}t\;\;(R,r,d)=(${p})`;
+const ph = p => T`x=(R-r)\cos t+d\cos\tfrac{R-r}{r}t,\; y=(R-r)\sin t-d\sin\tfrac{R-r}{r}t\;\;(R,r,d)=(${p})`;
+const polar = g => t => [g(t) * Math.cos(t), g(t) * Math.sin(t)];
+const TAU = 2 * Math.PI;
+
+// Fresnel integrals by Simpson's rule (for the Euler spiral)
+const fres = t => {
+  const n = 2 * Math.ceil(Math.abs(t) * 25 + 1), h = t / n;
+  let c = 0, s = 0;
+  for (let i = 0; i <= n; i++) {
+    const w = i === 0 || i === n ? 1 : i % 2 ? 4 : 2, u = i * h;
+    c += w * Math.cos(Math.PI * u * u / 2); s += w * Math.sin(Math.PI * u * u / 2);
+  }
+  return [c * h / 3, s * h / 3];
+};
+
+// Four-bar linkage: crank 1, coupler 3, rocker 3, ground 3; t is the crank angle
+const fourbar = t => {
+  const ax = Math.cos(t), ay = Math.sin(t), dx = 3 - ax, dy = -ay, L = Math.hypot(dx, dy);
+  const a = L / 2, h = Math.sqrt(9 - a * a), ux = dx / L, uy = dy / L;
+  const vx = (a * ux - h * uy) / 3, vy = (a * uy + h * ux) / 3, c = Math.cos(.5), s = Math.sin(.5);
+  return [ax + 3.5 * (vx * c - vy * s), ay + 3.5 * (vx * s + vy * c)];
+};
+
+/* Cycloids and trochoids */
+plane('cycloid', 'Cycloid', T`x=r(t-\sin t),\; y=r(1-\cos t)`,
+  'The path of a point on a rolling wheel\'s rim. Its arches are also the profile behind cycloidal gears.', 'Plasma', 6, 0, 6 * Math.PI, .02,
+  t => [t - Math.sin(t), 1 - Math.cos(t)]);
+plane('brachistochrone', 'Brachistochrone (Tautochrone)', T`x=r(t-\sin t),\; y=r(\cos t-1)`,
+  'An upside-down cycloid: the frictionless slide that gets a bead from A to B fastest, and in equal time from anywhere on the curve.', 'Viridis', 6, 0, TAU, .01,
+  t => [t - Math.sin(t), Math.cos(t) - 1]);
+plane('trochoidin', 'Inferior Trochoid (curtate)', T`x=rt-d\sin t,\; y=r-d\cos t,\; d<r`,
+  'A point inside the wheel, such as one on a spoke. The path is a wavy line with no cusps or loops.', 'Portland', 6, 0, 6 * Math.PI, .02,
+  t => [t - .6 * Math.sin(t), 1 - .6 * Math.cos(t)]);
+plane('trochoidsup', 'Superior Trochoid (prolate)', T`x=rt-d\sin t,\; y=r-d\cos t,\; d>r`,
+  'A point beyond the rim, like a train wheel\'s flange. At the bottom it moves backward, so the path forms loops.', 'Electric', 6, 0, 6 * Math.PI, .02,
+  t => [t - 1.6 * Math.sin(t), 1 - 1.6 * Math.cos(t)]);
+
+/* Epicycloids and epitrochoids */
+plane('cardioid', 'Cardioid', pe('1,1,1'),
+  'An epicycloid with one cusp. It describes the pickup pattern of a cardioid microphone.', 'Magma', 6, 0, TAU, .01, epi(1, 1, 1));
+plane('nephroid', 'Nephroid', pe('2,1,1'),
+  'Two cusps. It is the caustic that sunlight draws inside a coffee cup.', 'Inferno', 6, 0, TAU, .01, epi(2, 1, 1));
+plane('epi3', 'Epicycloid (3 cusps)', pe('3,1,1'),
+  'A circle rolling outside a fixed circle three times its size, the flank shape of cycloidal gear teeth.', 'Rainbow', 6, 0, TAU, .01, epi(3, 1, 1));
+plane('ranunculoid', 'Ranunculoid (5 cusps)', pe('5,1,1'),
+  'Rolling outside a circle five times larger gives five pointed petals.', 'Picnic', 6, 0, TAU, .01, epi(5, 1, 1));
+plane('epitroin', 'Inferior Epitrochoid', pe('3,1,0.5'),
+  'The pen sits inside the rolling circle, so the cusps soften into rounded lobes.', 'Plasma', 6, 0, TAU, .01, epi(3, 1, .5));
+plane('epitrosup', 'Superior Epitrochoid', pe('3,1,2'),
+  'The pen sits beyond the rolling circle\'s edge, which ties a small loop into every lobe.', 'Viridis', 6, 0, TAU, .01, epi(3, 1, 2));
+plane('wankel', 'Wankel Housing (epitrochoid)', T`x=R\cos t+e\cos 3t,\; y=R\sin t+e\sin 3t`,
+  'The two-lobed epitrochoid inside a rotary engine, traced so the triangular rotor always touches its wall.', 'Jet', 7, 0, TAU, .01,
+  t => [Math.cos(t) + .18 * Math.cos(3 * t), Math.sin(t) + .18 * Math.sin(3 * t)]);
+
+/* Hypocycloids and hypotrochoids */
+plane('deltoid', 'Deltoid (Steiner curve)', ph('3,1,1'),
+  'A circle rolling inside one three times its size makes a curved triangle with three cusps.', 'Earth', 6, 0, TAU, .01, hypo(3, 1, 1));
+plane('astroid', 'Astroid', ph('4,1,1'),
+  'The four-cusped star. It is the envelope of a sliding ladder, and the shape of the Cartesian "pencil of lines" trammel.', 'Portland', 6, 0, TAU, .01, hypo(4, 1, 1));
+plane('hypo52', 'Hypocycloid (R/r = 5/2)', ph('5,2,2'),
+  'A non-integer ratio takes two turns to close and traces a five-pointed star.', 'Magma', 6, 0, 2 * TAU, .01, hypo(5, 2, 2));
+plane('hypotroin', 'Inferior Hypotrochoid', ph('5,3,2'),
+  'A Spirograph pattern with the pen inside the rolling circle: a rounded rosette with no loops.', 'Rainbow', 5, 0, 6 * Math.PI, .02, hypo(5, 3, 2));
+plane('hypotrosup', 'Superior Hypotrochoid', ph('5,3,5'),
+  'The classic Spirograph curve: the pen sits beyond the rolling circle\'s rim, so each lobe gets a loop.', 'Plasma', 5, 0, 6 * Math.PI, .02, hypo(5, 3, 5));
+
+/* Spirals */
+plane('archspiral', 'Archimedean Spiral', T`r=a\theta`,
+  'Equal spacing between turns, as in scroll compressors, record grooves and constant-lift cams.', 'Viridis', 5, 0, 8 * Math.PI, .02, polar(t => .4 * t));
+plane('logspiral', 'Logarithmic Spiral', T`r=ae^{b\theta}`,
+  'Equiangular: it crosses every radius at the same angle. Nautilus shells and pump volutes follow it.', 'Inferno', 5, -4 * Math.PI, 2 * Math.PI, .02, polar(t => Math.exp(.2 * t)));
+plane('fermat', "Fermat's Spiral", T`r^2=a^2\theta`,
+  'A parabolic spiral whose two branches interlock through the origin. Sunflower seed heads grow along it.', 'Portland', 5, -4, 4, .005,
+  t => [t * Math.cos(t * t), t * Math.sin(t * t)]);
+plane('clothoid', 'Euler Spiral (Clothoid)', T`x=\int_0^t\cos\tfrac{\pi s^2}{2}ds,\; y=\int_0^t\sin\tfrac{\pi s^2}{2}ds`,
+  'Curvature grows steadily with distance. Highways and railways use it so steering eases in rather than jerking.', 'Jet', 6, -4, 4, .01, fres);
+
+/* Gears, cams and mechanisms */
+plane('involute', 'Involute of a Circle', T`x=r(\cos t+t\sin t),\; y=r(\sin t-t\cos t)`,
+  'The path of a taut string unwinding from a circle, and the standard tooth profile for most gears.', 'Electric', 6, 0, 8, .01,
+  t => [Math.cos(t) + t * Math.sin(t), Math.sin(t) - t * Math.cos(t)]);
+plane('fourbar', 'Four-Bar Coupler Curve', T`P=A+p\,R_\alpha\,\hat{u}_{AC}`,
+  'A point on the coupler of a crank-rocker linkage (links 1, 3, 3, 3). Linkage designers use such curves to guide motion.', 'Plasma', 7, 0, TAU, .01, fourbar);
+plane('slidercrank', 'Slider-Crank Piston Motion', T`x(\theta)=r\cos\theta+\sqrt{l^2-r^2\sin^2\theta}`,
+  'Piston position against crank angle for l/r = 3.5. The connecting rod makes it differ from a pure sine wave.', 'Viridis', 6, 0, 4 * Math.PI, .02,
+  t => [t, Math.cos(t) + Math.sqrt(12.25 - Math.sin(t) ** 2)]);
+plane('limacon', 'Limaçon', T`r=b+a\cos\theta`,
+  'With a > b it grows an inner loop. It shows up in cam profiles and as the path of a crank-driven point.', 'Magma', 6, 0, TAU, .01,
+  polar(t => 1 + 2 * Math.cos(t)));
+
+/* Structures and dynamics */
+plane('catenary', 'Catenary', T`y=a\cosh\tfrac xa`,
+  'How a free-hanging chain sags. Flipped upside down, it is the ideal shape for a masonry arch.', 'Earth', 7, -3, 3, .02,
+  t => [t, Math.cosh(t)]);
+plane('tractrix', 'Tractrix', T`x=t-\tanh t,\; y=\operatorname{sech}t`,
+  'The path of an object dragged by a rope along a straight line. It is also the profile of a Schiele pivot bearing.', 'Portland', 6, -6, 6, .02,
+  t => [t - Math.tanh(t), 1 / Math.cosh(t)]);
+plane('damped', 'Damped Oscillation', T`y=e^{-\zeta t}\sin\omega t`,
+  'A spring-mass system losing energy: the sine wave shrinks under an exponential envelope.', 'Inferno', 5, 0, 20, .02,
+  t => [t, Math.exp(-.2 * t) * Math.sin(4 * t)]);
+plane('beats', 'Beat Pattern', T`y=\sin 10t+\sin 11t=2\cos\tfrac t2\sin\tfrac{21t}{2}`,
+  'Two close frequencies interfere and the amplitude swells and fades, the signal behind out-of-tune strings and vibration beating.', 'Rainbow', 4, 0, 4 * Math.PI, .01,
+  t => [t, Math.sin(10 * t) + Math.sin(11 * t)]);
+plane('lissajous2d', 'Lissajous Figure (5:4)', T`x=\sin(5t+\tfrac\pi2),\; y=\sin 4t`,
+  'What an oscilloscope shows when two signals of related frequency drive its axes. The knot count reveals the ratio.', 'Jet', 5, 0, TAU, .005,
+  t => [Math.sin(5 * t + Math.PI / 2), Math.sin(4 * t)]);
+plane('superellipse', 'Superellipse (n = 4)', T`\left|\tfrac xa\right|^n+\left|\tfrac yb\right|^n=1`,
+  'Between a circle and a rounded square. Designers use it for table tops, plazas and app icons.', 'Viridis', 7, 0, TAU, .01,
+  t => [Math.sign(Math.cos(t)) * Math.abs(Math.cos(t)) ** .5, Math.sign(Math.sin(t)) * Math.abs(Math.sin(t)) ** .5]);
+
+/* Classical algebraic curves */
+plane('lemniscate', 'Lemniscate of Bernoulli', T`(x^2+y^2)^2=2a^2(x^2-y^2)`,
+  'The figure-8 where the product of the distances to two foci stays constant. Railway transition curves borrow its shape.', 'Plasma', 7, 0, TAU, .01,
+  t => [2 * Math.cos(t) / (1 + Math.sin(t) ** 2), 2 * Math.sin(t) * Math.cos(t) / (1 + Math.sin(t) ** 2)]);
+plane('witch', 'Witch of Agnesi', T`y=\frac{8a^3}{x^2+4a^2}`,
+  'A bell-shaped curve named by a mistranslation. It resembles resonance peaks and diffraction profiles.', 'Earth', 7, -8, 8, .02,
+  t => [t, 8 / (t * t + 4)]);
+plane('cissoid', 'Cissoid of Diocles', T`x=\frac{2at^2}{1+t^2},\; y=\frac{2at^3}{1+t^2}`,
+  'Invented to double the cube. Its cusp and asymptote make a shape much like a pointed leaf with open arms.', 'Magma', 7, -4, 4, .01,
+  t => [2 * t * t / (1 + t * t), 2 * t ** 3 / (1 + t * t)]);
+plane('rose52', 'Rose Curve (k = 5/2)', T`r=\cos(k\theta),\; k=\tfrac52`,
+  'A petal curve. With an odd numerator over 2 it needs four turns to close, and the petals overlap.', 'Rainbow', 5, 0, 4 * Math.PI, .01,
+  polar(t => Math.cos(2.5 * t)));
+plane('butterfly', 'Butterfly Curve', T`r=e^{\cos t}-2\cos 4t-\sin^5\tfrac t{12}`,
+  'Temple Fay\'s 1989 polar curve, drawn here over 12π so its wings fill in.', 'Inferno', 4, 0, 12 * Math.PI, .02,
+  t => { const r = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.sin(t / 12) ** 5; return [Math.sin(t) * r, Math.cos(t) * r]; });
+
+/* Involutes & Evolutes
+   Paste this block right after the Engineering Curves block (before "/* Attractors */").
+   Uses helpers from script.js: T, reg, surf, P. */
+const IE = 'Involutes & Evolutes';
+const PI2 = 2 * Math.PI;
+
+const sample = (t0, t1, dt, f) => { const a = []; for (let t = t0; t <= t1 + 1e-9; t += dt) a.push(f(t)); return a; };
+const circ = r => sample(0, PI2, .05, t => [r * Math.cos(t), r * Math.sin(t)]);
+
+// Several flat curves in one plot; each curve gets its own colour band
+const bundle = (k, n, eq, d, cs, w, curves) => reg(k, IE, n, eq, d, () => {
+  const x = [], y = [], z = [], c = [];
+  curves().forEach((pts, j) => {
+    pts.forEach((p, i) => { x.push(p[0]); y.push(p[1]); z.push(0); c.push(j + i / pts.length); });
+    x.push(null); y.push(null); z.push(null); c.push(j);
+  });
+  return { data: [{ x, y, z, type: 'scatter3d', mode: 'lines', connectgaps: false, line: { color: c, colorscale: cs, width: w } }] };
+});
+
+// Involute of any curve g(t): tip of a taut string unwound from g, starting at parameter tc
+const involute = (g, t0, t1, n, tc) => {
+  const P0 = [], s = [0];
+  for (let i = 0; i <= n; i++) P0.push(g(t0 + (t1 - t0) * i / n));
+  for (let i = 1; i <= n; i++) s.push(s[i - 1] + Math.hypot(P0[i][0] - P0[i - 1][0], P0[i][1] - P0[i - 1][1]));
+  const L0 = s[Math.round((tc - t0) / (t1 - t0) * n)];
+  return P0.map((p, i) => {
+    const a = P0[Math.max(i - 1, 0)], b = P0[Math.min(i + 1, n)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [p[0] - (s[i] - L0) * (b[0] - a[0]) / l, p[1] - (s[i] - L0) * (b[1] - a[1]) / l];
+  });
+};
+
+// Normals from a curve g to its centre of curvature c: they envelop the evolute
+const normals = (g, c, a, b, k) => Array.from({ length: k }, (_, i) => { const t = a + (b - a) * i / (k - 1); return [g(t), c(t)]; });
+const evolutePair = (k, n, eq, d, cs, g, c, a, b) =>
+  bundle(k, n, eq, d, cs, 4, () => [sample(a, b, .02, g), sample(a, b, .02, c), ...normals(g, c, a, b, 16).map(p => [p[0], p[1]])]);
+
+/* ---- Involutes ---- */
+bundle('invfamily', 'Involute Family of a Circle', T`x=r\cos(t+a_k)+rt\sin(t+a_k),\; y=r\sin(t+a_k)-rt\cos(t+a_k),\; a_k=\tfrac{k\pi}{4}`,
+  'Eight involutes of one base circle, each a rotated copy of the others. This is the pinwheel that gear teeth are cut from.', 'Rainbow', 4,
+  () => [circ(1), ...Array.from({ length: 8 }, (_, k) => sample(0, 4.5, .05, t => {
+    const a = k * Math.PI / 4; return [Math.cos(t + a) + t * Math.sin(t + a), Math.sin(t + a) - t * Math.cos(t + a)];
+  }))]);
+
+const gearOutline = () => {
+  const N = 14, rp = N / 2, rb = rp * Math.cos(Math.PI / 9), ra = rp + 1, rr = rp - 1.25;
+  const hb = Math.PI / (2 * N) + Math.tan(Math.PI / 9) - Math.PI / 9;
+  const tm = Math.sqrt((ra / rb) ** 2 - 1), inv = t => t - Math.atan(t), out = [];
+  for (let k = 0; k < N; k++) {
+    const c = PI2 * k / N, add = (r, a) => out.push([r * Math.cos(c + a), r * Math.sin(c + a)]);
+    const flank = s => { for (let i = 0; i <= 16; i++) { const t = tm * (s < 0 ? i : 16 - i) / 16; add(rb * Math.sqrt(1 + t * t), s * (hb - inv(t))); } };
+    add(rr, -hb); flank(-1); flank(1); add(rr, hb);
+    for (let i = 1; i < 5; i++) add(rr, hb + (PI2 / N - 2 * hb) * i / 5);
+  }
+  out.push(out[0]);
+  return out;
+};
+bundle('spurgear', 'Involute Spur Gear (14 teeth)', T`\varphi(r)=\varphi_b-\left(\tan\alpha-\alpha\right),\quad \alpha=\arccos\tfrac{r_b}{r}`,
+  'Each tooth flank is an involute of the base circle, so the gears roll with a constant velocity ratio. The inner rings mark the pitch and base circles.', 'Plasma', 5,
+  () => [gearOutline(), circ(7), circ(7 * Math.cos(Math.PI / 9))]);
+
+const ell = t => [2 * Math.cos(t), Math.sin(t)];
+bundle('invellipse', 'Involutes of an Ellipse', T`\mathbf I(t)=\mathbf\gamma(t)-\big(s(t)-s_0\big)\,\mathbf T(t)`,
+  'String unwound from an ellipse spirals outward. Starting at the two ends of the axes gives two different involutes.', 'Portland', 4,
+  () => [sample(0, PI2, .05, ell), involute(ell, 0, 4 * Math.PI, 800, 0), involute(ell, 0, 4 * Math.PI, 800, Math.PI)]);
+const par = t => [t, t * t];
+bundle('invparabola', 'Involute of a Parabola', T`\mathbf I(t)=\mathbf\gamma(t)-\big(s(t)-s_0\big)\,\mathbf T(t),\;\; \mathbf\gamma=(t,t^2)`,
+  'Unwinding from the vertex gives a curve with a cusp at the start, which bends back toward the parabola\'s axis.', 'Plasma', 5,
+  () => [sample(-1.5, 1.5, .05, par), involute(par, -1.5, 1.5, 600, 0)]);
+const cycE = t => [t + Math.sin(t), Math.cos(t) - 1];
+bundle('invcycloid', 'Involute of a Cycloid', T`\mathbf I(t)=\mathbf\gamma(t)-s(t)\mathbf T(t)\;\Rightarrow\; \text{a congruent cycloid}`,
+  'Unwinding a cycloid arch gives another cycloid of the same size. Huygens used this for his isochronous pendulum clock.', 'Viridis', 5,
+  () => [sample(0, PI2, .03, cycE), involute(cycE, 0, PI2, 600, 0)]);
+const cat = t => [t, Math.cosh(t)];
+bundle('invcatenary', 'Involute of a Catenary (Tractrix)', T`\mathbf I(t)=(t-\tanh t,\;\operatorname{sech}t)`,
+  'Unwind a hanging chain from its lowest point and the free end draws a tractrix.', 'Earth', 5,
+  () => [sample(-3, 3, .05, cat), involute(cat, -3, 3, 600, 0)]);
+
+surf('invhelicoid', IE, 'Involute Helicoid (helical gear flank)',
+  T`\mathbf r(u,v)=R_z(cv)\,\big(\cos u+u\sin u,\;\sin u-u\cos u\big),\; z=v`,
+  'Sweep an involute up the axis while turning it and you get the tooth flank of a helical gear.', 'Plasma',
+  P(0, 1.3, 40, 0, 6, 60, (u, v) => {
+    const bx = Math.cos(u) + u * Math.sin(u), by = Math.sin(u) - u * Math.cos(u), a = .45 * v;
+    return { x: bx * Math.cos(a) - by * Math.sin(a), y: bx * Math.sin(a) + by * Math.cos(a), z: v };
+  }));
+
+/* ---- Parallel curves ---- */
+bundle('ellipseoffsets', 'Parallel Curves of an Ellipse', T`\mathbf P_d(t)=\mathbf\gamma(t)+d\,\mathbf n(t)`,
+  'Offsetting an ellipse by distance d. Inward offsets past the radius of curvature grow cusps, tracing out the evolute.', 'Rainbow', 4,
+  () => [-.8, -.5, -.25, 0, .4, .8, 1.2].map(d => sample(0, PI2, .02, t => {
+    const N = Math.hypot(Math.cos(t), 2 * Math.sin(t));
+    return [2 * Math.cos(t) + d * Math.cos(t) / N, Math.sin(t) + d * 2 * Math.sin(t) / N];
+  })));
+
+/* ---- Evolutes: each curve, its evolute, and the normals that envelop it ---- */
+evolutePair('evparabola', 'Parabola and its Evolute', T`\gamma=(t,t^2),\quad \mathbf E=\left(-4t^3,\;3t^2+\tfrac12\right)`,
+  'The evolute of a parabola is Neile\'s semicubical parabola, with a cusp at the focus-side of the vertex.', 'Portland',
+  t => [t, t * t], t => [-4 * t ** 3, 3 * t * t + .5], -1, 1);
+evolutePair('evellipse', 'Ellipse and its Evolute', T`\mathbf E=\left(\tfrac{a^2-b^2}{a}\cos^3t,\;-\tfrac{a^2-b^2}{b}\sin^3t\right)`,
+  'The centres of curvature of an ellipse form a stretched astroid with four cusps.', 'Rainbow',
+  ell, t => [1.5 * Math.cos(t) ** 3, -3 * Math.sin(t) ** 3], 0, PI2);
+evolutePair('evcycloid', 'Cycloid and its Evolute', T`\mathbf E=(t+\sin t,\;\cos t-1)`,
+  'The evolute of a cycloid is an identical cycloid shifted down and sideways.', 'Viridis',
+  t => [t - Math.sin(t), 1 - Math.cos(t)], t => [t + Math.sin(t), Math.cos(t) - 1], 0, PI2);
+evolutePair('evcatenary', 'Catenary and its Evolute', T`\mathbf E=(t-\sinh t\cosh t,\;2\cosh t)`,
+  'The centres of curvature of a hanging chain trace a curve that rises steeply on both sides.', 'Earth',
+  cat, t => [t - Math.sinh(t) * Math.cosh(t), 2 * Math.cosh(t)], -1.6, 1.6);
+evolutePair('evastroid', 'Astroid and its Evolute', T`\mathbf E=\big(\cos^3t+3\cos t\sin^2t,\;\sin^3t+3\sin t\cos^2t\big)`,
+  'The evolute of an astroid is another astroid, twice as large and turned 45 degrees.', 'Plasma',
+  t => [Math.cos(t) ** 3, Math.sin(t) ** 3],
+  t => [Math.cos(t) ** 3 + 3 * Math.cos(t) * Math.sin(t) ** 2, Math.sin(t) ** 3 + 3 * Math.sin(t) * Math.cos(t) ** 2], 0, PI2);
+
 /* Attractors */
 att('lorenz', 'Lorenz Attractor', T`\dot x=\sigma(y-x),\; \dot y=x(\rho-z)-y,\; \dot z=xy-\beta z`,
   'The blueprint of chaos, born from a model of atmospheric convection and home of the butterfly effect.', 'Inferno', 8000, .008, [.1, 0, 0],
