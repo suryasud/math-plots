@@ -53,9 +53,6 @@ const P = (u0, u1, un, v0, v1, vn, f) => () => generateParametric(u0, u1, un, v0
 surf('sinc', 'Surfaces', 'The Sinc Function', T`z=\frac{\sin R}{R},\; R=\sqrt{x^2+y^2}`,
   'A mathematical raindrop: perfectly decaying concentric ripples, and the ideal interpolation filter in signal processing.', CY,
   G(-10, 10, .4, (x, y) => { const r = Math.hypot(x, y) + 1e-4; return Math.sin(r) / r; }));
-surf('gaussian', 'Surfaces', 'Bivariate Gaussian', T`f(x,y)=\frac{1}{2\pi\sigma^2}e^{-\frac{x^2+y^2}{2\sigma^2}}`,
-  'The bell curve extended into 3D, a foundation of statistics that appears everywhere from quantum mechanics to populations.', 'Viridis',
-  G(-6, 6, .25, (x, y) => Math.exp(-(x * x + y * y) / 8) / (8 * Math.PI)));
 surf('saddle', 'Surfaces', 'Hyperbolic Paraboloid', T`z=x^2-y^2`,
   'The saddle point: curving up in one direction and down in the other. Optimizers can stall here during gradient descent.', 'Plasma',
   G(-5, 5, .2, (x, y) => x * x - y * y));
@@ -68,6 +65,89 @@ surf('dropwave', 'Surfaces', 'Drop-Wave Function', T`f=-\frac{1+\cos(12\sqrt{x^2
 surf('eggcarton', 'Surfaces', 'Egg Carton Surface', T`z=\sin x\cos y`,
   'A repeating lattice of peaks and pits: a 2D standing-wave interference pattern.', 'Portland',
   G(-10, 10, .3, (x, y) => Math.sin(x) * Math.cos(y)));
+
+/* Distributions */
+const D = 'Distributions';
+const GR = (xa, xb, xs, ya, yb, ys, f) => () => generateGrid(xa, xb, xs, ya, yb, ys, f);
+const lnG = z => {
+  if (z < .5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * z))) - lnG(1 - z);
+  const c = [.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  z -= 1; let a = c[0]; const t = z + 7.5;
+  for (let i = 1; i < 9; i++) a += c[i] / (z + i);
+  return .5 * Math.log(2 * Math.PI) + (z + .5) * Math.log(t) - t + Math.log(a);
+};
+const erf = x => {
+  const s = Math.sign(x), t = 1 / (1 + .3275911 * Math.abs(x));
+  return s * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-x * x));
+};
+const Phi = x => .5 * (1 + erf(x / Math.SQRT2));
+const gauss2 = (x, y, mx, my, s) => Math.exp(-((x - mx) ** 2 + (y - my) ** 2) / (2 * s * s)) / (2 * Math.PI * s * s);
+
+surf('gaussian', D, 'Bivariate Gaussian', T`f(x,y)=\frac{1}{2\pi\sigma^2}e^{-\frac{x^2+y^2}{2\sigma^2}}`,
+  'The bell curve extended into 3D, a foundation of statistics that appears everywhere from quantum mechanics to populations.', 'Viridis',
+  G(-6, 6, .25, (x, y) => Math.exp(-(x * x + y * y) / 8) / (8 * Math.PI)));
+surf('corrnormal', D, 'Correlated Normal (ρ = 0.8)', T`f=\frac{1}{2\pi\sqrt{1-\rho^2}}\exp\!\left(-\frac{x^2-2\rho xy+y^2}{2(1-\rho^2)}\right)`,
+  'Strong positive correlation squeezes the bell into a long ridge along the diagonal.', 'Plasma',
+  G(-3.5, 3.5, .1, (x, y) => Math.exp(-(x * x - 1.6 * x * y + y * y) / .72) / (2 * Math.PI * .6)));
+surf('gmm', D, 'Gaussian Mixture', T`f(\mathbf x)=\sum_{k=1}^{3}\pi_k\,\mathcal N(\mathbf x\mid\boldsymbol\mu_k,\sigma_k^2 I)`,
+  'Three weighted Gaussians: the standard model for clustered data and the engine behind soft clustering.', 'Portland',
+  G(-5, 5, .12, (x, y) => .35 * gauss2(x, y, -2, -2, .8) + .4 * gauss2(x, y, 2, 1.5, 1) + .25 * gauss2(x, y, -1, 2.5, .7)));
+surf('skewnormal', D, 'Bivariate Skew-Normal', T`f(x,y)=2\,\phi(x)\phi(y)\,\Phi(\alpha_1x+\alpha_2y)`,
+  'A Gaussian tilted by its own CDF: one flank is steep, the other trails off in a long shoulder.', 'Viridis',
+  G(-4, 4, .1, (x, y) => Math.exp(-(x * x + y * y) / 2) / Math.PI * Phi(3 * x + y)));
+surf('student2d', D, "Bivariate Student's t (ν = 3)", T`f=\frac{\Gamma(\frac{\nu+2}{2})}{\Gamma(\frac\nu2)\,\nu\pi}\left(1+\frac{x^2+y^2}{\nu}\right)^{-\frac{\nu+2}{2}}`,
+  'A sharper peak than the Gaussian with heavy tails, so extreme values are far more likely.', 'Magma',
+  G(-6, 6, .15, (x, y) => Math.exp(lnG(2.5) - lnG(1.5)) / (3 * Math.PI) * (1 + (x * x + y * y) / 3) ** -2.5));
+surf('cauchy2d', D, 'Bivariate Cauchy', T`f=\frac{1}{2\pi}\left(1+x^2+y^2\right)^{-3/2}`,
+  'So heavy-tailed that its mean and variance do not exist. Outliers are part of the shape.', 'Electric',
+  G(-6, 6, .15, (x, y) => (1 + x * x + y * y) ** -1.5 / (2 * Math.PI)));
+surf('laplace2d', D, 'Bivariate Laplace', T`f=\tfrac14\,e^{-(|x|+|y|)}`,
+  'Two independent double exponentials form a pyramid with a sharp peak and diamond-shaped contours.', 'Inferno',
+  G(-6, 6, .15, (x, y) => Math.exp(-(Math.abs(x) + Math.abs(y))) / 4));
+surf('logistic2d', D, 'Bivariate Logistic (Gumbel)', T`f=\frac{2\,e^{-x-y}}{\left(1+e^{-x}+e^{-y}\right)^{3}}`,
+  'A skewed, bulky peak with exponential tails, from Gumbel\'s bivariate logistic family.', 'Jet',
+  G(-6, 6, .2, (x, y) => 2 * Math.exp(-x - y) / (1 + Math.exp(-x) + Math.exp(-y)) ** 3));
+surf('lognormal2d', D, 'Bivariate Log-Normal', T`f=\frac{1}{2\pi\sigma^2xy}\exp\!\left(-\frac{\ln^2x+\ln^2y}{2\sigma^2}\right)`,
+  'Multiplicative effects pile up on a log scale: a hump against the axes with a long right-hand tail.', 'Earth',
+  GR(.03, 4, .08, .03, 4, .08, (x, y) => Math.exp(-(Math.log(x) ** 2 + Math.log(y) ** 2) / .72) / (2 * Math.PI * .36 * x * y)));
+surf('normalgamma', D, 'Normal-Gamma', T`f(\mu,\tau)=\frac{b^a\sqrt\lambda}{\Gamma(a)\sqrt{2\pi}}\,\tau^{a-\frac12}e^{-b\tau}e^{-\frac{\lambda\tau(\mu-\mu_0)^2}{2}}`,
+  'A Bayesian prior over a mean μ and a precision τ. Notice how the spread in μ narrows as τ grows.', 'Plasma',
+  GR(-3, 3, .08, 0, 4, .06, (m, t) => .3989 * t ** 1.5 * Math.exp(-t - t * m * m / 2)));
+surf('dirichlet', D, 'Dirichlet (α = 3, 5, 4)', T`f(\mathbf p)=\frac{\Gamma(\sum\alpha_i)}{\prod\Gamma(\alpha_i)}\prod_i p_i^{\alpha_i-1}`,
+  'A distribution over probabilities that sum to 1. The base is the triangle of all possible three-way splits, shown here in (p₁, p₂).', 'Viridis',
+  G(0, 1, .02, (x, y) => { const p = 1 - x - y; return p < -1e-9 ? null : 138600 * x ** 2 * y ** 4 * Math.max(p, 0) ** 3; }));
+surf('vonmises', D, 'Bivariate von Mises (torus)', T`f(\phi,\psi)\propto\exp\!\big(\kappa_1\cos\phi+\kappa_2\cos\psi+\lambda\sin\phi\sin\psi\big)`,
+  'A distribution over two angles, where the edges wrap around. It is used for protein backbone angles. Shown unnormalized.', 'Portland',
+  G(-Math.PI, Math.PI, .1, (p, q) => Math.exp(2 * Math.cos(p) + 2 * Math.cos(q) + 1.5 * Math.sin(p) * Math.sin(q))));
+surf('clayton', D, 'Clayton Copula Density (θ = 2)', T`c(u,v)=(1+\theta)(uv)^{-1-\theta}\left(u^{-\theta}+v^{-\theta}-1\right)^{-2-\frac1\theta}`,
+  'Models dependence with no marginals attached: strong lower-tail dependence, so variables crash together. Capped at 20.', 'Magma',
+  G(.03, 1, .02, (u, v) => Math.min(20, 3 * (u * v) ** -3 * (u ** -2 + v ** -2 - 1) ** -2.5)));
+surf('banana', D, 'Banana (Twisted Gaussian)', T`f(x,y)=\frac{1}{2\pi}\exp\!\left(-\frac{x^2}{8}-2\left(y-\frac{x^2}{4}\right)^2\right)`,
+  'A curved ridge that is a classic hard target for MCMC samplers, which struggle to follow its bend.', 'Jet',
+  GR(-5, 5, .1, -2, 8, .12, (x, y) => Math.exp(-x * x / 8 - 2 * (y - x * x / 4) ** 2) / (2 * Math.PI)));
+surf('funnel', D, "Neal's Funnel", T`f(x,y)=\mathcal N(y\mid0,3^2)\;\mathcal N(x\mid0,e^{y})`,
+  'The geometry of hierarchical models: wide and gentle at the top, a razor-thin neck at the bottom.', 'Electric',
+  G(-4, 4, .08, (x, y) => Math.exp(-y * y / 18 - x * x / (2 * Math.exp(y))) / (3 * 2 * Math.PI * Math.exp(y / 2))));
+
+/* Distribution families: density over (x, parameter) */
+surf('gammafam', D, 'Gamma Family (shape k)', T`f(x;k)=\frac{x^{k-1}e^{-x}}{\Gamma(k)}`,
+  'Shape k runs from 1 to 9. At k = 1 it is the exponential, and as k grows it slides right and turns bell-shaped.', 'Viridis',
+  GR(0, 12, .15, 1, 9, .1, (x, k) => Math.exp((k - 1) * Math.log(Math.max(x, 1e-9)) - x - lnG(k))));
+surf('betafam', D, 'Beta Family (α, β = 3)', T`f(x;\alpha)=\frac{x^{\alpha-1}(1-x)^{2}}{B(\alpha,3)}`,
+  'The distribution of probabilities themselves. Raising α pushes the mass from the left edge to the right.', 'Plasma',
+  GR(.01, .99, .01, 1, 8, .1, (x, a) => Math.exp((a - 1) * Math.log(x) + 2 * Math.log(1 - x) - lnG(a) - lnG(3) + lnG(a + 3))));
+surf('tfam', D, "Student's t Family (ν)", T`f(x;\nu)=\frac{\Gamma(\frac{\nu+1}{2})}{\sqrt{\nu\pi}\,\Gamma(\frac\nu2)}\left(1+\frac{x^2}{\nu}\right)^{-\frac{\nu+1}{2}}`,
+  'Degrees of freedom ν from 0.5 to 30. Watch the heavy tails thin out as the curve converges on the normal.', 'Earth',
+  GR(-5, 5, .1, .5, 30, .5, (x, v) => Math.exp(lnG((v + 1) / 2) - lnG(v / 2)) / Math.sqrt(v * Math.PI) * (1 + x * x / v) ** (-(v + 1) / 2)));
+surf('chisqfam', D, 'Chi-Squared Family (k)', T`f(x;k)=\frac{x^{k/2-1}e^{-x/2}}{2^{k/2}\Gamma(k/2)}`,
+  'Sums of squared normals. More degrees of freedom k shift the mass right and flatten the peak.', 'Portland',
+  GR(0, 30, .4, 2, 14, .15, (x, k) => Math.exp((k / 2 - 1) * Math.log(Math.max(x, 1e-9)) - x / 2 - k / 2 * Math.LN2 - lnG(k / 2))));
+surf('weibullfam', D, 'Weibull Family (shape k)', T`f(x;k)=k\,x^{k-1}e^{-x^{k}}`,
+  'The distribution of lifetimes and failure times. Shape k below 2 means early failures, and above it wear-out.', 'Magma',
+  GR(0, 3, .04, 1, 6, .1, (x, k) => k * Math.max(x, 1e-9) ** (k - 1) * Math.exp(-(x ** k))));
+surf('poissonfam', D, 'Poisson Family (rate λ)', T`P(k;\lambda)=\frac{\lambda^{k}e^{-\lambda}}{\Gamma(k+1)}`,
+  'Counts of rare events. The true distribution lives on whole numbers, so this smooth surface is its continuous extension via Γ.', 'Jet',
+  GR(0, 20, .25, .5, 15, .2, (k, l) => Math.exp(k * Math.log(l) - l - lnG(k + 1))));
 
 /* Optimization landscapes */
 const O = 'Optimization Landscapes';
