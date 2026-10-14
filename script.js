@@ -233,9 +233,7 @@ curve('conespiral', K, 'Conical Spiral', T`x=t\cos 6t,\; y=t\sin 6t,\; z=t`,
   'A helix whose radius grows with height, wrapping the surface of a cone.', 'Plasma', 6,
   () => polyline(0, 5, .01, t => [t * Math.cos(6 * t), t * Math.sin(6 * t), t]));
 
-/* Engineering curves
-   Paste this whole block into script.js, right before the "/* Attractors */" comment.
-   Uses helpers already in your script: T, CY, reg, polyline. */
+/* Engineering curves */
 const E = 'Engineering Curves';
 
 // Flat curve in the XY plane, coloured along its path
@@ -375,9 +373,7 @@ plane('butterfly', 'Butterfly Curve', T`r=e^{\cos t}-2\cos 4t-\sin^5\tfrac t{12}
   'Temple Fay\'s 1989 polar curve, drawn here over 12π so its wings fill in.', 'Inferno', 4, 0, 12 * Math.PI, .02,
   t => { const r = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.sin(t / 12) ** 5; return [Math.sin(t) * r, Math.cos(t) * r]; });
 
-/* Involutes & Evolutes
-   Paste this block right after the Engineering Curves block (before "/* Attractors */").
-   Uses helpers from script.js: T, reg, surf, P. */
+/* Involutes & Evolutes */
 const IE = 'Involutes & Evolutes';
 const PI2 = 2 * Math.PI;
 
