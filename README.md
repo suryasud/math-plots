@@ -82,22 +82,20 @@ math-plots/
 
 The app is static, so there is nothing to install. It loads Plotly, MathJax and the fonts from CDNs, so you need an internet connection the first time.
 
-**Option A: open the file**
+**Option A: open the website**
 
-Double-click `index.html`. It works in any modern browser with WebGL.
+Visit `suryasud.github.io/math-plots`. It works in any modern browser with WebGL.
 
 **Option B: serve it locally (recommended)**
 
 From the `math-plots/` folder:
 
 ```bash
-python3 -m http.server 8000
+python3 -m math_functions.py
 ```
 
-Then visit <http://localhost:8000>.
-
 > [!TIP]
-> Prefer Node? `npx serve .` does the same job. In VS Code, the *Live Server* extension also works.
+> Need to actually plot any particular curve to see it.
 
 ### Run the Python library
 
