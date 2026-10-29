@@ -560,5 +560,4 @@ Headings use **Fraunces** and body text uses **Instrument Sans**, both from Goog
 ---
 
 ## License
-
-No license file is included yet. Add a `LICENSE` file (for example MIT) before you share the project publicly, so that others know how they may use it.
+GNU V3.0 License
