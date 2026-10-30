@@ -20,31 +20,33 @@ const generateParametric = (u0, u1, un, v0, v1, vn, f) => {
     }
     x.push(rx); y.push(ry); z.push(rz);
   }
-  return { x, y, z };
+  const u = Array.from({ length: un + 1 }, (_, i) => u0 + i * (u1 - u0) / un);
+  const v = Array.from({ length: vn + 1 }, (_, j) => v0 + j * (v1 - v0) / vn);
+  return { x, y, z, u, v };
 };
 
 const generateAttractor = (steps, dt, init, f) => {
-  const x = [], y = [], z = [];
+  const x = [], y = [], z = [], d = [];
   let [a, b, c] = init;
   for (let i = 0; i < steps; i++) {
-    const [dx, dy, dz] = f(a, b, c);
+    const dv = f(a, b, c), [dx, dy, dz] = dv;
     a += dx * dt; b += dy * dt; c += dz * dt;
-    x.push(a); y.push(b); z.push(c);
+    x.push(a); y.push(b); z.push(c); d.push(dv);
   }
-  return { x, y, z };
+  return { x, y, z, d, init, dt };
 };
 
 const polyline = (t0, t1, dt, f) => {
-  const x = [], y = [], z = [];
-  for (let t = t0; t <= t1; t += dt) { const p = f(t); x.push(p[0]); y.push(p[1]); z.push(p[2]); }
-  return { x, y, z };
+  const x = [], y = [], z = [], ts = [];
+  for (let t = t0; t <= t1; t += dt) { const p = f(t); x.push(p[0]); y.push(p[1]); z.push(p[2]); ts.push(t); }
+  return { x, y, z, t: ts };
 };
 
 /* ---------- Model registry ---------- */
 const M = {};
-const reg = (k, group, name, eq, desc, gen) => { M[k] = { group, name, equation: '$$' + eq + '$$', description: desc, generate: gen }; };
-const surf = (k, g, n, eq, d, cs, f) => reg(k, g, n, eq, d, () => ({ data: [{ ...f(), type: 'surface', colorscale: cs, showscale: false }] }));
-const curve = (k, g, n, eq, d, cs, w, f) => reg(k, g, n, eq, d, () => { const p = f(); return { data: [{ ...p, type: 'scatter3d', mode: 'lines', line: { color: p.z, colorscale: cs, width: w } }] }; });
+const reg = (k, group, name, eq, desc, gen) => { M[k] = { group, name, eq, equation: '$$' + eq + '$$', description: desc, generate: gen }; };
+const surf = (k, g, n, eq, d, cs, f) => reg(k, g, n, eq, d, () => { const { u, v, ...s } = f(); return { data: [{ ...s, type: 'surface', colorscale: cs, showscale: false }], meta: { kind: u ? 'param' : 'grid', u, v, cs } }; });
+const curve = (k, g, n, eq, d, cs, w, f) => reg(k, g, n, eq, d, () => { const { t, d: dd, init, dt, ...p } = f(); return { data: [{ ...p, type: 'scatter3d', mode: 'lines', line: { color: p.z, colorscale: cs, width: w } }], meta: { kind: dd ? 'ode' : 'curve', t, d: dd, init, dt, cs } }; });
 const att = (k, n, eq, d, cs, steps, dt, init, fn) => curve(k, 'Attractors', n, eq, d, cs, 2.5, () => generateAttractor(steps, dt, init, fn));
 const G = (a, b, s, f) => () => generateGrid(a, b, s, a, b, s, f);
 const P = (u0, u1, un, v0, v1, vn, f) => () => generateParametric(u0, u1, un, v0, v1, vn, f);
@@ -238,8 +240,8 @@ const E = 'Engineering Curves';
 
 // Flat curve in the XY plane, coloured along its path
 const plane = (k, n, eq, d, cs, w, t0, t1, dt, f) => reg(k, E, n, eq, d, () => {
-  const p = polyline(t0, t1, dt, t => [...f(t), 0]);
-  return { data: [{ ...p, type: 'scatter3d', mode: 'lines', line: { color: Array.from(p.x, (_, i) => i), colorscale: cs, width: w } }] };
+  const { t, ...p } = polyline(t0, t1, dt, q => [...f(q), 0]);
+  return { data: [{ ...p, type: 'scatter3d', mode: 'lines', line: { color: Array.from(p.x, (_, i) => i), colorscale: cs, width: w } }], meta: { kind: 'curve', t, cs } };
 });
 
 // Rolling-circle families: R = fixed circle, r = rolling circle, d = pen distance
@@ -387,7 +389,7 @@ const bundle = (k, n, eq, d, cs, w, curves) => reg(k, IE, n, eq, d, () => {
     pts.forEach((p, i) => { x.push(p[0]); y.push(p[1]); z.push(0); c.push(j + i / pts.length); });
     x.push(null); y.push(null); z.push(null); c.push(j);
   });
-  return { data: [{ x, y, z, type: 'scatter3d', mode: 'lines', connectgaps: false, line: { color: c, colorscale: cs, width: w } }] };
+  return { data: [{ x, y, z, type: 'scatter3d', mode: 'lines', connectgaps: false, line: { color: c, colorscale: cs, width: w } }], meta: { kind: 'multi', cs } };
 });
 
 // Involute of any curve g(t): tip of a taut string unwound from g, starting at parameter tc
@@ -490,7 +492,7 @@ att('rossler', 'Rössler Attractor', T`\dot x=-y-z,\; \dot y=x+ay,\; \dot z=b+z(
   'Otto Rössler\'s 1976 design: as simple as possible while still being chaotic.', 'Earth', 10000, .04, [1, 1, 1],
   (x, y, z) => [-y - z, x + .2 * y, .2 + z * (x - 5.7)]);
 att('chen', 'Chen Attractor', T`\dot x=a(y-x),\; \dot y=(c-a)x-xz+cy,\; \dot z=xy-bz`,
-  'Found in 1999, dynamically richer than the Lorenz system despite a similar structure.', 'Electric', 8000, .005, [5, 10, 10],
+  'Found in 1999, dynamically richer than the Lorenz system despite a similar structure.', 'Electric', 12000, .002, [5, 10, 10],
   (x, y, z) => [35 * (y - x), -7 * x - x * z + 28 * y, x * y - 3 * z]);
 att('thomas', "Thomas' Cyclically Symmetric Attractor", T`\dot x=\sin y-bx,\; \dot y=\sin z-by,\; \dot z=\sin x-bx`,
   'Cyclic symmetry in three dimensions: instead of two wings it weaves a labyrinthine lattice.', 'Picnic', 15000, .05, [1, 1.1, 1],
@@ -523,13 +525,50 @@ att('fourwing', 'Four-Wing Attractor', T`\dot x=ax+yz,\; \dot y=bx+cy-xz,\; \dot
   'Trajectories alternate between four lobes, a more intricate cousin of the two-winged Lorenz butterfly.', 'Portland', 12000, .05, [1, 1, 1],
   (x, y, z) => [.2 * x + y * z, .01 * x - .4 * y - x * z, -z - x * y]);
 
+/* ---------- Build animation: helpers ---------- */
+const fmt = v => String(+(+v).toFixed(2));
+// Put numbers into an equation: swaps each standalone variable name for its value
+const sub = (eq, vars) => Object.entries(vars).reduce((s, [n, v]) =>
+  s.replace(new RegExp('(?<![\\\\A-Za-z])' + n + '(?![A-Za-z])', 'g'), `(${fmt(v)})`), eq);
+const bounds = t => ['x', 'y', 'z'].map(a => {
+  const v = [t[a]].flat(Infinity).filter(Number.isFinite), lo = Math.min(...v), hi = Math.max(...v);
+  const p = (hi - lo) * .06 || 1; return [lo - p, hi + p];
+});
+
+// Chooses the sample points to animate: each has its inputs (vars) and its output vector (out)
+const plan = (out, raw) => {
+  const t = out.data[0], m = out.meta || {}, P = [];
+  const pick = (n, k) => { const s = Math.max(1, Math.ceil(n / k)), r = Array.from({ length: Math.ceil(n / s) }, (_, a) => a * s); if (r[r.length - 1] !== n - 1) r.push(n - 1); return r; };
+  if (m.kind === 'grid') {
+    for (const i of pick(t.y.length, 14)) for (const j of pick(t.x.length, 14)) {
+      const z = t.z[i][j];
+      if (Number.isFinite(z)) P.push({ vars: { x: t.x[j], y: t.y[i] }, out: [t.x[j], t.y[i], z] });
+    }
+  } else if (m.kind === 'param') {
+    for (const i of pick(m.u.length, 14)) for (const j of pick(m.v.length, 14))
+      P.push({ vars: { u: m.u[i], v: m.v[j] }, out: [t.x[i][j], t.y[i][j], t.z[i][j]] });
+  } else if (m.kind === 'ode') {
+    const idx = [...new Set([0, 1, 2, 3, 4, ...pick(t.x.length, 220)])];
+    for (const i of idx) P.push({ ode: { old: i ? [t.x[i - 1], t.y[i - 1], t.z[i - 1]] : m.init, d: m.d[i], dt: m.dt }, out: [t.x[i], t.y[i], t.z[i]] });
+  } else {
+    const ok = t.x.map((_, i) => i).filter(i => t.x[i] != null);
+    const has = n => new RegExp('(?<![\\\\A-Za-z])' + n + '(?![A-Za-z])').test(raw);
+    const name = has('t') || !has('u') ? 't' : 'u';
+    for (const q of pick(ok.length, m.kind === 'curve' ? 160 : 220)) {
+      const i = ok[q];
+      P.push({ vars: m.t ? { [name]: m.t[i] } : null, out: [t.x[i], t.y[i], t.z[i]] });
+    }
+  }
+  return P;
+};
+
 /* ---------- Plot layout ---------- */
-const layout = () => ({
+const layout = (b, key) => ({
   paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-  margin: { t: 0, b: 0, l: 0, r: 0 },
+  margin: { t: 0, b: 0, l: 0, r: 0 }, showlegend: false, uirevision: key,
   font: { family: 'Instrument Sans, sans-serif', color: '#9a9fc4' },
   scene: {
-    xaxis: { visible: false }, yaxis: { visible: false }, zaxis: { visible: false },
+    xaxis: { visible: false, range: b[0] }, yaxis: { visible: false, range: b[1] }, zaxis: { visible: false, range: b[2] },
     camera: { eye: { x: 1.4, y: 1.4, z: 1.2 } }, bgcolor: 'rgba(0,0,0,0)'
   }
 });
@@ -548,13 +587,85 @@ for (const [name, ks] of Object.entries(groups)) {
   select.append(og);
 }
 
+const CFG = { displayModeBar: false, responsive: true };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+const typeset = el => (window.MathJax?.typesetPromise ? MathJax.typesetPromise([el]).catch(() => {}) : Promise.resolve());
+let run = 0, curKey = null, cur = null;
+
+const BRIGHT = [[0, '#38e8ff'], [.5, '#7dffb2'], [1, '#fff36b']];   // bright on dark: cyan, then mint, then yellow
+const moved = (p, q) => q && p.vars ? Object.keys(p.vars).filter(k => Math.abs(p.vars[k] - q.vars[k]) > 1e-9) : [];
+const what = (p, q) => !q ? 'start at the first input' : p.ode ? 'take the next Euler step'
+  : moved(p, q).length ? moved(p, q).join(' and ') + ' moves one step, the rest stay fixed' : 'next point along the shape';
+const vecText = (p, q) => (p.vars ? Object.entries(p.vars).map(([k, v]) => {
+  const d = moved(p, q).includes(k) ? v - q.vars[k] : 0;
+  return `${k} = ${fmt(v)}` + (d ? ` <i>(${d > 0 ? '+' : ''}${fmt(d)})</i>` : '');
+}).join(', ') + ' &rarr; ' : '') + `<b>P = (${p.out.map(fmt).join(', ')})</b>`;
+function explain(p, m, eqEl, vec, q) {
+  if (p.ode) {
+    const f = a => `(${a.map(fmt).join(', ')})`;
+    eqEl.innerHTML = m.equation;
+    vec.innerHTML = `state ${f(p.ode.old)}<br>rates ${f(p.ode.d)}<br>next = state + ${p.ode.dt} &middot; rates<br><b>P = ${f(p.out)}</b>`;
+  } else {
+    eqEl.innerHTML = p.vars ? '$$' + sub(m.eq, p.vars) + '$$' : '';
+    vec.innerHTML = vecText(p, q);
+  }
+}
+
+function ready() {
+  const l = $('loader'), i = $('info');
+  l.style.opacity = 0; l.style.pointerEvents = 'none';
+  void i.offsetWidth; i.classList.add('swap');
+}
+
+// The complete shape, all at once
+function showFull() {
+  ++run; $('work').hidden = true; $('replay').classList.remove('on');
+  return Plotly.react('plot', cur.data, layout(bounds(cur.data[0]), curKey), CFG).then(ready);
+}
+
+// Substitute, evaluate, plot: a few points slowly, then fast-forward to the outline
+async function build() {
+  const my = ++run, m = M[curKey], P = plan(cur, m.eq);
+  const live = () => run === my, cap = $('work-cap'), eqEl = $('work-eq'), vec = $('work-vec'), bar = $('work-prog');
+  const mk = (size, marker) => ({ type: 'scatter3d', mode: 'markers', x: [], y: [], z: [], hoverinfo: 'skip', marker: { size, ...marker } });
+  $('work').hidden = false; $('replay').classList.add('on'); eqEl.style.opacity = 1; bar.style.width = '0';
+  eqEl.textContent = ''; vec.textContent = '';
+  await Plotly.react('plot', [mk(5.5, { color: [], colorscale: BRIGHT, cmin: 0, cmax: P.length, opacity: 1 }),
+    mk(12, { color: '#ff3d9a', opacity: 1, line: { color: '#ffffff', width: 2 } })], layout(bounds(cur.data[0]), curKey), CFG);
+  ready();
+  const put = (a, b) => {
+    const S = P.slice(a, b), l = S[S.length - 1].out;
+    Plotly.extendTraces('plot', { x: [S.map(p => p.out[0])], y: [S.map(p => p.out[1])], z: [S.map(p => p.out[2])], 'marker.color': [S.map((_, i) => a + i)] }, [0]);
+    Plotly.restyle('plot', { x: [[l[0]]], y: [[l[1]]], z: [[l[2]]] }, [1]);
+    bar.style.width = (b / P.length * 100) + '%';
+  };
+  const slow = Math.min(5, P.length);
+  for (let i = 0; i < slow; i++) {
+    cap.textContent = `Point ${i + 1} of ${P.length}: ${what(P[i], P[i - 1])}`;
+    explain(P[i], m, eqEl, vec, P[i - 1]); await typeset(eqEl);
+    if (!live()) return; await sleep(900); if (!live()) return;
+    put(i, i + 1); await sleep(450); if (!live()) return;
+  }
+  cap.textContent = 'Same steps, fast-forwarded (cyan to yellow = order drawn)'; eqEl.style.opacity = .3;
+  const per = Math.max(1, Math.ceil((P.length - slow) / 60));
+  for (let i = slow; i < P.length; i += per) {
+    const e = Math.min(i + per, P.length);
+    vec.innerHTML = vecText(P[e - 1]); put(i, e);
+    await frame(); if (!live()) return;
+  }
+  cap.textContent = 'Outline complete'; await sleep(700);
+  if (live()) showFull();
+}
+
 function renderPlot(key) {
-  const m = M[key], loader = $('loader'), info = $('info');
-  select.value = key;
-  loader.style.opacity = 1; loader.style.pointerEvents = 'all';
-  info.classList.remove('swap');
+  const m = M[key], loader = $('loader'), info = $('info'), my = ++run;
+  select.value = key; curKey = key;
+  loader.style.opacity = 1; loader.style.pointerEvents = 'all'; info.classList.remove('swap');
+  $('work').hidden = true;
 
   setTimeout(() => {
+    if (run !== my) return;
     $('func-name').textContent = m.name;
     $('func-badge').textContent = m.group;
     $('func-desc').textContent = m.description;
@@ -562,12 +673,8 @@ function renderPlot(key) {
     (window.MathJax?.startup?.promise || Promise.resolve())
       .then(() => MathJax.typesetPromise?.([$('func-eq')]))
       .catch(console.error);
-
-    Plotly.react('plot', m.generate().data, layout(), { displayModeBar: false, responsive: true }).then(() => {
-      loader.style.opacity = 0; loader.style.pointerEvents = 'none';
-      void info.offsetWidth;
-      info.classList.add('swap');
-    });
+    cur = m.generate();
+    ($('auto').checked ? build() : showFull()).catch(console.error);
   }, 50);
 }
 
@@ -577,10 +684,13 @@ $('prev').addEventListener('click', () => step(-1));
 $('next').addEventListener('click', () => step(1));
 $('random').addEventListener('click', () => renderPlot(keys[Math.floor(Math.random() * keys.length)]));
 document.addEventListener('keydown', e => {
-  if (e.target === select) return;
+  if (e.target === select || e.target.type === 'checkbox') return;
   if (e.key === 'ArrowLeft') step(-1);
   if (e.key === 'ArrowRight') step(1);
 });
+
+$('replay').addEventListener('click', () => build().catch(console.error));
+$('showall').addEventListener('click', () => showFull().catch(console.error));
 
 window.addEventListener('load', () => renderPlot('sinc'));
 window.addEventListener('resize', () => { const p = $('plot'); if (p.data) Plotly.Plots.resize(p); });

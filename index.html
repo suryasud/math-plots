@@ -40,6 +40,17 @@
 
   <main class="stage">
     <div id="loader" class="loader"><i></i><span>Computing</span></div>
+    <div class="tools">
+      <button id="replay" class="pill" aria-label="Replay the build animation">&#9654; Build</button>
+      <button id="showall" class="pill" aria-label="Show the whole shape at once">Show all</button>
+      <label class="pill toggle"><input type="checkbox" id="auto" checked> Animate on select</label>
+    </div>
+    <div id="work" class="work" hidden>
+      <div class="work-cap" id="work-cap"></div>
+      <div class="work-eq" id="work-eq"></div>
+      <div class="work-vec" id="work-vec"></div>
+      <div class="work-bar"><i id="work-prog"></i></div>
+    </div>
     <div id="plot"></div>
   </main>
 
